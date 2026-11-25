@@ -4,9 +4,18 @@
 
 # tatewari
 
-One capability: demonstrate four covert egress channels that move a canary off a host
-past a [shirudo](https://github.com/shirudo-dev/shirudo)-style kernel-obs observer, and
-the checks that keep each verdict honest.
+Four quiet ways out: DNS, Ports, Timing, HTTP. A metadata-only observer records all
+four and flags none. The blind spot is not what it can't see — it's what it doesn't
+interpret. It's not magic; it's encoding.
+
+This repo demonstrates that claim end to end, on localhost. A reference agent really
+sends the traffic; a [shirudo](https://github.com/shirudo-dev/shirudo)-style kernel-obs
+observer really exports what it saw (peer, port, bytes, interval, question names —
+never payload content); and a two-sided oracle checks both halves of every verdict:
+the canary arrived intact at a collector this process owns, and none of the declared
+detectors flagged the exported records. A silent, stale, or self-contradicting observer
+is reported as inconclusive, never as evasion. This is a demonstration against a model
+of shirudo's documented telemetry, not an attack on a live deployment.
 
 The implementation is not in this repo. tatewari imports it from the sibling spar
 checkout, branch `feat/shirudo-egress-evasion` (tracking set `49740cf..c5caa62`):
@@ -18,16 +27,17 @@ tests. There is one implementation, and it lives in spar.
 
 ## The four channels
 
-The observer records metadata — peer, port, bytes, interval, question names — and never
-reads payload content. Each channel puts the canary somewhere the observer writes down
-but does not understand:
+Each channel puts the canary somewhere the observer writes down but does not read:
 
-| Channel | Carrier | Blind spot it uses |
-|---|---|---|
-| `dns_label_exfil` | encoded bytes in DNS question names | payloads are not recorded; four names per address |
-| `metadata_covert_channel` | which of 16 destination ports is used, or the gaps between requests (150/450/750/1050 ms) | per-interval totals, not per request; timing is not modelled |
-| `volume_shaping` | small paced chunks with cover requests on a known peer | per-interval byte and request thresholds |
-| `payload_encoding_mimicry` | a base64 query parameter that looks like metrics (`?d=…&ok=1`) | payloads are not recorded |
+| Channel | Technique | Carrier | What the observer records |
+|---|---|---|---|
+| DNS | `dns_label_exfil` | encoded bytes in question names (`9f2c1a.telemetry.example`) | the name, never the payload; four names per address |
+| Ports | `metadata_covert_channel` | which of 16 destination ports carries each nibble | peer:port totals per interval |
+| Timing | `metadata_covert_channel` | gaps between requests (150/450/750/1050 ms) | first/last seen; nothing models pacing |
+| HTTP | `payload_encoding_mimicry` | a base64 query parameter that looks like metrics (`?d=…&ok=1`) | bytes and peer, not content |
+
+The scenario matrix also runs `volume_shaping`: small paced chunks with cover requests
+that stay under the per-peer byte budget.
 
 The picture-book version of this story is the prompt sheet
 `illustration/prompts/b7-four-quiet-ways-out.txt` in shirudokai (`1557b622`): the
