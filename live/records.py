@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2026 Authors of tatewari
 """Parse the chunks shirudo's own serializer emitted.
 
 The layout is read off ``upatches/kernel-obs/`` and is not guessed:
@@ -53,9 +55,23 @@ def _ip(word: int) -> str:
 
 
 def _parse_header(table: str, record: bytes) -> dict:
-    (magic, version, header_size, record_size, per_page, capacity, buckets,
-     key_size, val_size, flags, now_ns, since_ns, used, overflow,
-     lost) = struct.unpack("<IHHHHIIIIIIQQIIII", record[:64])
+    (
+        magic,
+        version,
+        header_size,
+        record_size,
+        per_page,
+        capacity,
+        buckets,
+        key_size,
+        val_size,
+        flags,
+        now_ns,
+        since_ns,
+        used,
+        overflow,
+        lost,
+    ) = struct.unpack("<IHHHHIIIIIIQQIIII", record[:64])
     return {
         "magic_ok": magic == TABLE_MAGIC[table],
         "version": version,
@@ -76,45 +92,69 @@ def _parse_header(table: str, record: bytes) -> dict:
 
 
 def _parse_net(record: bytes) -> dict:
-    dev, = struct.unpack("<I", record[8:12])
-    ino, = struct.unpack("<Q", record[16:24])
-    cgroup, = struct.unpack("<Q", record[24:32])
+    (dev,) = struct.unpack("<I", record[8:12])
+    (ino,) = struct.unpack("<Q", record[16:24])
+    (cgroup,) = struct.unpack("<Q", record[24:32])
     family, proto, role = record[32], record[33], record[34]
-    port, = struct.unpack("<H", record[36:38])
+    (port,) = struct.unpack("<H", record[36:38])
     addr = struct.unpack("<IIII", record[40:56])
     count, first, last, tx_pkts, tx_bytes, rx_pkts, rx_bytes = struct.unpack(
-        "<QQQQQQQ", record[56:112])
-    pid, = struct.unpack("<I", record[112:116])
+        "<QQQQQQQ", record[56:112]
+    )
+    (pid,) = struct.unpack("<I", record[112:116])
     return {
-        "dev": dev, "ino": ino, "cgroup": cgroup,
-        "family": family, "proto": proto, "role": role, "port": port,
-        "addr": list(addr), "ip": _ip(addr[0]) if family == 2 else "",
-        "count": count, "first_ns": first, "last_ns": last,
-        "tx_pkts": tx_pkts, "tx_bytes": tx_bytes,
-        "rx_pkts": rx_pkts, "rx_bytes": rx_bytes, "pid": pid,
+        "dev": dev,
+        "ino": ino,
+        "cgroup": cgroup,
+        "family": family,
+        "proto": proto,
+        "role": role,
+        "port": port,
+        "addr": list(addr),
+        "ip": _ip(addr[0]) if family == 2 else "",
+        "count": count,
+        "first_ns": first,
+        "last_ns": last,
+        "tx_pkts": tx_pkts,
+        "tx_bytes": tx_bytes,
+        "rx_pkts": rx_pkts,
+        "rx_bytes": rx_bytes,
+        "pid": pid,
     }
 
 
 def _parse_dns(record: bytes) -> dict:
-    dev, = struct.unpack("<I", record[8:12])
-    ino, = struct.unpack("<Q", record[16:24])
-    cgroup, = struct.unpack("<Q", record[24:32])
+    (dev,) = struct.unpack("<I", record[8:12])
+    (ino,) = struct.unpack("<Q", record[16:24])
+    (cgroup,) = struct.unpack("<Q", record[24:32])
     family = record[32]
     addr = struct.unpack("<IIII", record[40:56])
     count, first, last = struct.unpack("<QQQ", record[56:80])
     names = []
     for index in range(4):
         base = 80 + index * 272
-        seen, last_ns = struct.unpack("<QQ", record[base:base + 16])
+        seen, last_ns = struct.unpack("<QQ", record[base : base + 16])
         if not seen:
             continue
-        raw = record[base + 16:base + 16 + 256]
-        names.append({"name": raw.split(b"\x00", 1)[0].decode("ascii", "replace"),
-                      "seen": seen, "last_ns": last_ns})
+        raw = record[base + 16 : base + 16 + 256]
+        names.append(
+            {
+                "name": raw.split(b"\x00", 1)[0].decode("ascii", "replace"),
+                "seen": seen,
+                "last_ns": last_ns,
+            }
+        )
     return {
-        "dev": dev, "ino": ino, "cgroup": cgroup, "family": family,
-        "addr": list(addr), "ip": _ip(addr[0]) if family == 2 else "",
-        "count": count, "first_ns": first, "last_ns": last, "names": names,
+        "dev": dev,
+        "ino": ino,
+        "cgroup": cgroup,
+        "family": family,
+        "addr": list(addr),
+        "ip": _ip(addr[0]) if family == 2 else "",
+        "count": count,
+        "first_ns": first,
+        "last_ns": last,
+        "names": names,
     }
 
 
@@ -134,7 +174,7 @@ def parse(root: str, table: str, seq: int) -> dict:
             if raw is None:
                 continue
             offset = CHUNK_HEADER + slot * size
-            record = raw[offset:offset + size]
+            record = raw[offset : offset + size]
             if len(record) < size:
                 continue
             if page_slot == 0:
@@ -144,6 +184,5 @@ def parse(root: str, table: str, seq: int) -> dict:
             index, flags = struct.unpack("<II", record[:8])
             if not index or not (flags & RECORD_PRESENT):
                 continue
-            records.append(_parse_net(record) if table == "net"
-                           else _parse_dns(record))
+            records.append(_parse_net(record) if table == "net" else _parse_dns(record))
     return {"header": header, "records": records}

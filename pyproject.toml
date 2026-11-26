@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tatewari"
 version = "0.1.0"
-description = "Demonstrate four covert egress channels against a shirudo-style kernel-obs observer, using the spar implementation."
+description = "Covert egress and evidence-plane demonstrations against shirudo's kernel-obs observer: four channels past a metadata-only record, ten scenarios against the record itself, judged on a model and on a real target."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
 # spar is installed from the sibling checkout, not PyPI:
@@ -13,7 +13,7 @@ requires-python = ">=3.11,<3.15"
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.17"]
 
 [project.scripts]
 tatewari = "tatewari.covert_egress:main"
@@ -24,3 +24,26 @@ include = ["tatewari*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E4",   # pycodestyle imports
+    "E7",   # pycodestyle statements
+    "E9",   # pycodestyle runtime
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # bugbear
+    "UP",   # pyupgrade
+    "SIM",  # simplify
+    "ISC",  # implicit string concat
+    "RUF",  # ruff-specific
+]
+
+[tool.ruff.lint.per-file-ignores]
+# scripts insert the repo root into sys.path before importing
+"live/probe_target.py" = ["E402"]
+"observed/probe_dns.py" = ["E402"]

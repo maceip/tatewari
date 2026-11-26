@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2026 Authors of tatewari
 """The observed run is checked in, so its claims stay tied to its numbers.
 
 These tests read `observed/target-kernel-obs.json` -- one run of the ten
@@ -18,8 +20,16 @@ import pytest
 FIXTURE = Path(__file__).resolve().parent.parent / "observed" / "target-kernel-obs.json"
 
 VERDICTS = {
-    "lost", "refused", "split", "unrecorded", "unattributed", "unjoined",
-    "evicted", "confused", "survived", "inconclusive",
+    "lost",
+    "refused",
+    "split",
+    "unrecorded",
+    "unattributed",
+    "unjoined",
+    "evicted",
+    "confused",
+    "survived",
+    "inconclusive",
 }
 
 # The model's expectation, and what the target actually did. Two rows differ,
@@ -57,8 +67,13 @@ def test_ten_scenarios_are_recorded(run: dict) -> None:
     names = [f["scenario"] for f in run["findings"]]
     assert len(names) == len(set(names)) == 10
     assert set(names) == set(DIVERGENCES) | {
-        "attribution_blank", "dns_offport", "dns_qtype_txt", "dns_nxdomain",
-        "dns_name_launder", "dns_id_confusion", "bucket_collision",
+        "attribution_blank",
+        "dns_offport",
+        "dns_qtype_txt",
+        "dns_nxdomain",
+        "dns_name_launder",
+        "dns_id_confusion",
+        "bucket_collision",
         "export_stall",
     }
 
@@ -125,7 +140,9 @@ def test_the_unjoined_verdicts_hold_no_names(run: dict) -> None:
         assert snapshot["records"] == [], name
 
 
-def test_the_partial_export_lost_nothing_so_the_claim_is_marked_survived(run: dict) -> None:
+def test_the_partial_export_lost_nothing_so_the_claim_is_marked_survived(
+    run: dict,
+) -> None:
     evidence = _by_name(run, "export_partial")["evidence"]
     assert evidence["next_lost"] == 0
     assert evidence["capped_records"] <= evidence["interval_used"]

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2026 Authors of tatewari
 """The evidence-plane scenarios, asserted through the same API the CLI uses.
 
 Each test asserts the verdict, and then asserts the number that makes the
@@ -12,11 +14,11 @@ import pytest
 
 from tatewari.evidence_pipeline import SCENARIOS, run_matrix, summary
 from tatewari.observer_model import (
-    ArenaTable,
     DNS_MAX_NAMES_PER_IP,
     NET_BUCKETS,
     ROLE_INITIATOR,
     TABLE_STEPS,
+    ArenaTable,
     Exe,
     Ident,
     hash_words,
@@ -34,7 +36,8 @@ def matrix():
 def test_scenario_reaches_expected_verdict(matrix, name):
     finding = matrix[name]
     assert finding.verdict == finding.expected, (
-        f"{name}: expected {finding.expected}, got {finding.verdict}: {finding.claim}")
+        f"{name}: expected {finding.expected}, got {finding.verdict}: {finding.claim}"
+    )
 
 
 def test_export_partial_destroys_a_record_the_kernel_held(matrix):
@@ -119,8 +122,9 @@ def test_probe_limit_is_eight_links():
     ident = Ident(Exe(1, 2), 3)
     groups: dict[int, list[int]] = {}
     for port in range(1024, 65536):
-        words = net_key_words(ident, 2, 17, ROLE_INITIATOR, port,
-                              ipv4_addr_words("127.0.0.1"))
+        words = net_key_words(
+            ident, 2, 17, ROLE_INITIATOR, port, ipv4_addr_words("127.0.0.1")
+        )
         groups.setdefault(hash_words(words) & (NET_BUCKETS - 1), []).append(port)
     assert max(len(v) for v in groups.values()) > TABLE_STEPS
 

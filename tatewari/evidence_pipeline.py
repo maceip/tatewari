@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2026 Authors of tatewari
 """The evidence plane: attacks on what the observer writes down, not what it sees.
 
 The four channels in ``covert_egress`` attack the observer's *rules*: they put
@@ -28,6 +30,7 @@ Verdicts used here, none of which mean "the target was wrong":
 
 from __future__ import annotations
 
+import contextlib
 import json
 import socket
 import struct
@@ -46,7 +49,6 @@ from .observer_model import (
     Exe,
     Ident,
     KernelObs,
-    NetObserver,
     SockFact,
     hash_words,
     ipv4_addr_words,
@@ -105,7 +107,7 @@ class UdpSink:
         while True:
             try:
                 data, _peer = self._sock.recvfrom(65535)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 return
@@ -118,21 +120,24 @@ class UdpSink:
         return len(self.received)
 
     def close(self) -> None:
-        try:
+        with contextlib.suppress(OSError):
             self._sock.close()
-        except OSError:
-            pass
 
 
-def send_udp(dst_port: int, payload: bytes = b"x", *,
-             host: str = "127.0.0.1") -> dict:
+def send_udp(dst_port: int, payload: bytes = b"x", *, host: str = "127.0.0.1") -> dict:
     """One real datagram; returns what the sender's own socket reports."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.bind((host, 0))
         sport = sock.getsockname()[1]
         sock.sendto(payload, (host, dst_port))
-    return {"src": host, "dst": host, "sport": sport, "dport": dst_port,
-            "payload": len(payload), "proto": 17}
+    return {
+        "src": host,
+        "dst": host,
+        "sport": sport,
+        "dport": dst_port,
+        "payload": len(payload),
+        "proto": 17,
+    }
 
 
 def _build_query(name: str, qid: int, qtype: int) -> bytes:
@@ -153,11 +158,11 @@ def _read_name(buf: bytes, off: int) -> tuple[str, int]:
             off += 1
             break
         if length & 0xC0:
-            pointer = struct.unpack("!H", buf[off:off + 2])[0] & 0x3FFF
+            pointer = struct.unpack("!H", buf[off : off + 2])[0] & 0x3FFF
             labels.append(_read_name(buf, pointer)[0])
             off += 2
             break
-        labels.append(buf[off + 1:off + 1 + length].decode("ascii", "replace"))
+        labels.append(buf[off + 1 : off + 1 + length].decode("ascii", "replace"))
         off += 1 + length
     return ".".join(labels), off
 
@@ -165,8 +170,14 @@ def _read_name(buf: bytes, off: int) -> tuple[str, int]:
 class Resolver:
     """A real UDP DNS responder: answers A, TXT, or nothing at all."""
 
-    def __init__(self, mode: str = "a", *, answer: str = "127.0.0.9",
-                 port: int = 0, host: str = "127.0.0.1") -> None:
+    def __init__(
+        self,
+        mode: str = "a",
+        *,
+        answer: str = "127.0.0.9",
+        port: int = 0,
+        host: str = "127.0.0.1",
+    ) -> None:
         self.mode = mode
         self.answer = answer
         self._host = host
@@ -183,7 +194,7 @@ class Resolver:
         while True:
             try:
                 data, peer = self._sock.recvfrom(4096)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 return
@@ -193,7 +204,7 @@ class Resolver:
             if qdcount != 1:
                 continue
             qname, off = _read_name(data, 12)
-            qtype = struct.unpack("!H", data[off:off + 2])[0]
+            qtype = struct.unpack("!H", data[off : off + 2])[0]
             self.served.append({"qname": qname, "qtype": qtype, "qid": qid})
             reply = self._answer(data, qid, qname, qtype, peer)
             if reply is None:
@@ -203,8 +214,9 @@ class Resolver:
             except OSError:
                 return
 
-    def _answer(self, query: bytes, qid: int, qname: str, qtype: int,
-                peer: tuple) -> bytes | None:
+    def _answer(
+        self, query: bytes, qid: int, qname: str, qtype: int, peer: tuple
+    ) -> bytes | None:
         if self.mode == "bits":
             # `b<index>.y.probe.test` resolves to its own address; `n` refuses.
             labels = qname.split(".")
@@ -212,8 +224,11 @@ class Resolver:
                 index = int(labels[0][1:] or 0)
                 rdata = socket.inet_aton(f"127.0.0.{index + 1}")
                 header = struct.pack("!HHHHHH", qid, 0x8180, 1, 1, 0, 0)
-                answer = b"\xc0\x0c" + struct.pack(
-                    "!HHIH", DNS_TYPE_A, 1, 30, len(rdata)) + rdata
+                answer = (
+                    b"\xc0\x0c"
+                    + struct.pack("!HHIH", DNS_TYPE_A, 1, 30, len(rdata))
+                    + rdata
+                )
                 return header + query[12:] + answer
             return struct.pack("!HHHHHH", qid, 0x8183, 1, 0, 0, 0) + query[12:]
         if self.mode == "nxdomain":
@@ -238,16 +253,20 @@ class Resolver:
         return len(self.served)
 
     def close(self) -> None:
-        try:
+        with contextlib.suppress(OSError):
             self._sock.close()
-        except OSError:
-            pass
 
 
-def query_once(port: int, name: str, qtype: int = DNS_TYPE_A, *,
-               qid: int | None = None, sock: socket.socket | None = None,
-               expect_reply: bool = True,
-               host: str = "127.0.0.1") -> dict:
+def query_once(
+    port: int,
+    name: str,
+    qtype: int = DNS_TYPE_A,
+    *,
+    qid: int | None = None,
+    sock: socket.socket | None = None,
+    expect_reply: bool = True,
+    host: str = "127.0.0.1",
+) -> dict:
     """One real DNS query. Returns the query facts and whether a reply came."""
     own = sock is None
     sock = sock or socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -264,7 +283,7 @@ def query_once(port: int, name: str, qtype: int = DNS_TYPE_A, *,
         if expect_reply:
             try:
                 data, _peer = sock.recvfrom(4096)
-            except socket.timeout:
+            except TimeoutError:
                 data = b""
             if len(data) >= 12:
                 _q, _f, _qd, ancount = struct.unpack("!HHHH", data[:8])
@@ -274,14 +293,22 @@ def query_once(port: int, name: str, qtype: int = DNS_TYPE_A, *,
                 for _ in range(ancount):
                     _n, off = _read_name(data, off)
                     rtype, _cls, _ttl, rdlen = struct.unpack(
-                        "!HHIH", data[off:off + 10])
+                        "!HHIH", data[off : off + 10]
+                    )
                     off += 10
                     if rtype == DNS_TYPE_A and rdlen == 4:
-                        answered.append(socket.inet_ntoa(data[off:off + 4]))
+                        answered.append(socket.inet_ntoa(data[off : off + 4]))
                     off += rdlen
-        return {"name": name, "qtype": qtype, "qid": txid, "sport": sport,
-                "dport": port, "ancount": ancount, "answers": answered,
-                "payload": len(packet)}
+        return {
+            "name": name,
+            "qtype": qtype,
+            "qid": txid,
+            "sport": sport,
+            "dport": port,
+            "ancount": ancount,
+            "answers": answered,
+            "payload": len(packet),
+        }
     finally:
         if own:
             sock.close()
@@ -292,8 +319,9 @@ CGROUP = 4411
 
 
 def _initiator(cgroup: int | None = CGROUP) -> SockFact:
-    return SockFact(skb_sk=True, sk_storage=True, exe=EXE, cgroup=cgroup,
-                    role=ROLE_INITIATOR)
+    return SockFact(
+        skb_sk=True, sk_storage=True, exe=EXE, cgroup=cgroup, role=ROLE_INITIATOR
+    )
 
 
 def _net_records(export) -> list[dict]:
@@ -320,30 +348,58 @@ def _control_interval(obs: KernelObs, now: int) -> tuple[bool, dict]:
         arrived = sink.wait(1) >= 1
     finally:
         sink.close()
-    obs.net.packet(egress=True, src=facts["src"], dst=facts["dst"],
-                   sport=facts["sport"], dport=facts["dport"], proto=17,
-                   payload=facts["payload"], now_ns=now, sock=_initiator())
+    obs.net.packet(
+        egress=True,
+        src=facts["src"],
+        dst=facts["dst"],
+        sport=facts["sport"],
+        dport=facts["dport"],
+        proto=17,
+        payload=facts["payload"],
+        now_ns=now,
+        sock=_initiator(),
+    )
     export = obs.net.export(now + 1)
     recorded = bool(_find_peer(export, addr="127.0.0.1", port=sink.port))
-    return (arrived and recorded), {"arrived": arrived, "recorded": recorded,
-                                    "port": sink.port}
+    return (arrived and recorded), {
+        "arrived": arrived,
+        "recorded": recorded,
+        "port": sink.port,
+    }
 
 
-def _udp_trial(obs: KernelObs, now: int, *, port: int, payload: bytes,
-               sock: SockFact | None = None) -> dict:
+def _udp_trial(
+    obs: KernelObs, now: int, *, port: int, payload: bytes, sock: SockFact | None = None
+) -> dict:
     facts = send_udp(port, payload)
-    obs.net.packet(egress=True, src=facts["src"], dst=facts["dst"],
-                   sport=facts["sport"], dport=facts["dport"], proto=17,
-                   payload=facts["payload"], now_ns=now,
-                   sock=sock or _initiator())
+    obs.net.packet(
+        egress=True,
+        src=facts["src"],
+        dst=facts["dst"],
+        sport=facts["sport"],
+        dport=facts["dport"],
+        proto=17,
+        payload=facts["payload"],
+        now_ns=now,
+        sock=sock or _initiator(),
+    )
     return facts
 
 
-def _tap(obs: KernelObs, now: int, *, egress: bool, sport: int, dport: int,
-         payload: int) -> None:
-    obs.net.packet(egress=egress, src="127.0.0.1", dst="127.0.0.1",
-                   sport=sport, dport=dport, proto=17, payload=payload,
-                   now_ns=now, sock=_initiator())
+def _tap(
+    obs: KernelObs, now: int, *, egress: bool, sport: int, dport: int, payload: int
+) -> None:
+    obs.net.packet(
+        egress=egress,
+        src="127.0.0.1",
+        dst="127.0.0.1",
+        sport=sport,
+        dport=dport,
+        proto=17,
+        payload=payload,
+        now_ns=now,
+        sock=_initiator(),
+    )
 
 
 def _dns_export_has(obs: KernelObs, now: int) -> tuple[bool, dict, list[dict]]:
@@ -368,8 +424,9 @@ def scn_export_partial() -> Finding:
         decoy.close()
     first = obs.net.export(3_000, ship=1)
     second = obs.net.export(4_000)
-    carrier_lost = not _find_peer(first, addr="127.0.0.1", port=sink.port) and \
-        not _find_peer(second, addr="127.0.0.1", port=sink.port)
+    carrier_lost = not _find_peer(
+        first, addr="127.0.0.1", port=sink.port
+    ) and not _find_peer(second, addr="127.0.0.1", port=sink.port)
     if not control_ok:
         verdict = "inconclusive"
     elif carrier_lost and second.lost > 0:
@@ -383,8 +440,12 @@ def scn_export_partial() -> Finding:
         verdict=verdict,
         basis="observed",
         claim="the canary arrived; the exporter abandoned one page and the next pass destroyed the rest",
-        evidence={"control": control, "arrived": arrived,
-                  "first_page": first.to_dict(), "restart": second.to_dict()},
+        evidence={
+            "control": control,
+            "arrived": arrived,
+            "first_page": first.to_dict(),
+            "restart": second.to_dict(),
+        },
         notes=[
             "obs_table.h:155-171: flip() clears an undrained buffer and counts it into lost",
             "obs_table.h:379-395: the buffer is cleared and lost zeroed only when the pass reaches the last record",
@@ -409,9 +470,17 @@ def scn_export_stall() -> Finding:
                 sock.sendto(b"f", ("127.0.0.1", dport))
             except OSError:
                 failed += 1
-            obs.net.packet(egress=True, src="127.0.0.1", dst="127.0.0.1",
-                           sport=sport, dport=dport, proto=17, payload=1,
-                           now_ns=2_100 + i, sock=_initiator())
+            obs.net.packet(
+                egress=True,
+                src="127.0.0.1",
+                dst="127.0.0.1",
+                sport=sport,
+                dport=dport,
+                proto=17,
+                payload=1,
+                now_ns=2_100 + i,
+                sock=_initiator(),
+            )
         _udp_trial(obs, 2_500, port=sink.port, payload=b"canary")
         arrived = sink.wait(1)
     finally:
@@ -433,10 +502,15 @@ def scn_export_stall() -> Finding:
         verdict=verdict,
         basis="observed",
         claim="no export ran, the active table filled, and the refusal fell on insertion order, not importance",
-        evidence={"control": control, "arrived": arrived,
-                  "sent": NET_CAPACITY, "send_errors": failed,
-                  "export": export.to_dict(), "carrier_present": bool(carrier),
-                  "first_filler_present": bool(early)},
+        evidence={
+            "control": control,
+            "arrived": arrived,
+            "sent": NET_CAPACITY,
+            "send_errors": failed,
+            "export": export.to_dict(),
+            "carrier_present": bool(carrier),
+            "first_filler_present": bool(early),
+        },
         notes=[
             "obs_table.h:127-133: past capacity the touch refuses the entry and counts overflow",
             "the carrier is refused because it was inserted last, not because it was less interesting",
@@ -454,9 +528,15 @@ def scn_attribution_blank() -> Finding:
     sink = UdpSink()
     try:
         _udp_trial(obs, 2_000, port=sink.port, payload=b"canary-attributed")
-        facts = _udp_trial(obs, 2_001, port=sink.port, payload=b"canary-blank",
-                           sock=SockFact(skb_sk=True, sk_storage=False,
-                                         cgroup=CGROUP, role=ROLE_INITIATOR))
+        _udp_trial(
+            obs,
+            2_001,
+            port=sink.port,
+            payload=b"canary-blank",
+            sock=SockFact(
+                skb_sk=True, sk_storage=False, cgroup=CGROUP, role=ROLE_INITIATOR
+            ),
+        )
         arrived = sink.wait(2)
     finally:
         sink.close()
@@ -477,10 +557,14 @@ def scn_attribution_blank() -> Finding:
         verdict=verdict,
         basis="observed",
         claim="two peers, same bytes, same destination: one record names the binary, the other names nobody",
-        evidence={"control": control, "arrived": arrived,
-                  "unattributed_records": blank, "attributed_records": named,
-                  "unattributed_count": obs.net.unattributed,
-                  "export": export.to_dict()},
+        evidence={
+            "control": control,
+            "arrived": arrived,
+            "unattributed_records": blank,
+            "attributed_records": named,
+            "unattributed_count": obs.net.unattributed,
+            "export": export.to_dict(),
+        },
         notes=[
             "obs_net.bpf.c:965-978: without the socket-storage record the key keeps a cgroup id and exe stays zero",
             "the condition is a socket the observer never saw created, or one whose storage it could not read",
@@ -497,15 +581,23 @@ def scn_unsocketed_packet() -> Finding:
         arrived = sink.wait(1)
     finally:
         sink.close()
-    obs.net.packet(egress=True, src=facts["src"], dst=facts["dst"],
-                   sport=facts["sport"], dport=facts["dport"], proto=17,
-                   payload=facts["payload"], now_ns=2_000,
-                   sock=SockFact(skb_sk=False))
+    obs.net.packet(
+        egress=True,
+        src=facts["src"],
+        dst=facts["dst"],
+        sport=facts["sport"],
+        dport=facts["dport"],
+        proto=17,
+        payload=facts["payload"],
+        now_ns=2_000,
+        sock=SockFact(skb_sk=False),
+    )
     export = obs.net.export(3_000)
     if not control_ok:
         verdict = "inconclusive"
-    elif obs.net.dropped_no_socket and not _find_peer(export, addr="127.0.0.1",
-                                                      port=sink.port):
+    elif obs.net.dropped_no_socket and not _find_peer(
+        export, addr="127.0.0.1", port=sink.port
+    ):
         verdict = "unrecorded"
     else:
         verdict = "survived"
@@ -516,9 +608,12 @@ def scn_unsocketed_packet() -> Finding:
         verdict=verdict,
         basis="modelled",
         claim="a packet with no socket on it is not attributed to nobody, it is not recorded at all",
-        evidence={"control": control, "arrived": arrived,
-                  "dropped_no_socket": obs.net.dropped_no_socket,
-                  "export": export.to_dict()},
+        evidence={
+            "control": control,
+            "arrived": arrived,
+            "dropped_no_socket": obs.net.dropped_no_socket,
+            "export": export.to_dict(),
+        },
         notes=[
             "the one modelled property here: the kernel runs cgroup_skb programs only for a full socket",
             "basis is modelled because the demo cannot make a skb sk-less on every platform",
@@ -538,15 +633,34 @@ def scn_dns_offport() -> Finding:
         obs.dns.resolver_port = resolver.port + 1
         query = query_once(resolver.port, "quiet.example")
         resolver.wait(1)
-        _tap(obs, 2_000, egress=True, sport=query["sport"], dport=resolver.port,
-             payload=query["payload"])
-        obs.dns.query(name=query["name"], qtype=DNS_TYPE_A, qid=query["qid"],
-                      dst="127.0.0.1", sport=query["sport"],
-                      dport=resolver.port, ident=Ident(EXE, CGROUP), now_ns=2_000)
-        obs.dns.response(qid=query["qid"], dst="127.0.0.1",
-                         client_port=query["sport"], sport=resolver.port,
-                         qtype=DNS_TYPE_A, answers=query["answers"],
-                         ancount=query["ancount"], now_ns=2_001)
+        _tap(
+            obs,
+            2_000,
+            egress=True,
+            sport=query["sport"],
+            dport=resolver.port,
+            payload=query["payload"],
+        )
+        obs.dns.query(
+            name=query["name"],
+            qtype=DNS_TYPE_A,
+            qid=query["qid"],
+            dst="127.0.0.1",
+            sport=query["sport"],
+            dport=resolver.port,
+            ident=Ident(EXE, CGROUP),
+            now_ns=2_000,
+        )
+        obs.dns.response(
+            qid=query["qid"],
+            dst="127.0.0.1",
+            client_port=query["sport"],
+            sport=resolver.port,
+            qtype=DNS_TYPE_A,
+            answers=query["answers"],
+            ancount=query["ancount"],
+            now_ns=2_001,
+        )
     finally:
         resolver.close()
     net_export = obs.net.export(3_000)
@@ -564,10 +678,13 @@ def scn_dns_offport() -> Finding:
         verdict=verdict,
         basis="observed",
         claim="a real answer came back over a port the observer does not parse: the peer is recorded, the name is not",
-        evidence={"control": control, "query": query,
-                  "net_records": len(net_export.records),
-                  "dns_records": len(dns_export["records"]),
-                  "dns_debug": dict(obs.dns.debug)},
+        evidence={
+            "control": control,
+            "query": query,
+            "net_records": len(net_export.records),
+            "dns_records": len(dns_export["records"]),
+            "dns_debug": dict(obs.dns.debug),
+        },
         notes=[
             "obs_dns.bpf.c:11 and :828-840: answers are parsed only from the configured resolver port",
             "the resolver port is remapped in this demo so no privileged bind is needed",
@@ -583,9 +700,16 @@ def scn_dns_qtype_txt() -> Finding:
         obs.dns.resolver_port = resolver.port
         query = query_once(resolver.port, "spf.example", DNS_TYPE_TXT)
         resolver.wait(1)
-        obs.dns.query(name=query["name"], qtype=DNS_TYPE_TXT, qid=query["qid"],
-                      dst="127.0.0.1", sport=query["sport"],
-                      dport=resolver.port, ident=Ident(EXE, CGROUP), now_ns=2_000)
+        obs.dns.query(
+            name=query["name"],
+            qtype=DNS_TYPE_TXT,
+            qid=query["qid"],
+            dst="127.0.0.1",
+            sport=query["sport"],
+            dport=resolver.port,
+            ident=Ident(EXE, CGROUP),
+            now_ns=2_000,
+        )
     finally:
         resolver.close()
     has_dns, dns_export, _ = _dns_export_has(obs, 3_000)
@@ -593,8 +717,12 @@ def scn_dns_qtype_txt() -> Finding:
     exported = json.dumps([e.to_dict() for e in obs.dns.table.exported])
     if not control_ok:
         verdict = "inconclusive"
-    elif query["ancount"] and not has_dns and counter and \
-            "query_qtype_unsupported" not in exported:
+    elif (
+        query["ancount"]
+        and not has_dns
+        and counter
+        and "query_qtype_unsupported" not in exported
+    ):
         verdict = "unjoined"
     else:
         verdict = "survived"
@@ -605,9 +733,13 @@ def scn_dns_qtype_txt() -> Finding:
         verdict=verdict,
         basis="observed",
         claim="a TXT answer is a real answer; the observer counted the refusal and never told the collector",
-        evidence={"control": control, "query": query, "counter": counter,
-                  "dns_records": len(dns_export["records"]),
-                  "counter_exported": "query_qtype_unsupported" in exported},
+        evidence={
+            "control": control,
+            "query": query,
+            "counter": counter,
+            "dns_records": len(dns_export["records"]),
+            "counter_exported": "query_qtype_unsupported" in exported,
+        },
         notes=[
             "obs_dns.bpf.c:642 only A and AAAA are parsed",
             "obs_dns.bpf.c:161 obs_i_dns_dbg is internal: no decoder, no pin, no snapshot",
@@ -628,18 +760,30 @@ def scn_dns_nxdomain() -> Finding:
             name = f"b{i}.{'y' if bit else 'n'}.probe.test"
             query = query_once(resolver.port, name)
             queries.append(query)
-            obs.dns.query(name=name, qtype=DNS_TYPE_A, qid=query["qid"],
-                          dst="127.0.0.1", sport=query["sport"],
-                          dport=resolver.port, ident=Ident(EXE, CGROUP),
-                          now_ns=2_000 + i)
-            obs.dns.response(qid=query["qid"], dst="127.0.0.1",
-                             client_port=query["sport"], sport=resolver.port,
-                             qtype=DNS_TYPE_A, answers=query["answers"],
-                             ancount=query["ancount"], now_ns=2_001 + i)
+            obs.dns.query(
+                name=name,
+                qtype=DNS_TYPE_A,
+                qid=query["qid"],
+                dst="127.0.0.1",
+                sport=query["sport"],
+                dport=resolver.port,
+                ident=Ident(EXE, CGROUP),
+                now_ns=2_000 + i,
+            )
+            obs.dns.response(
+                qid=query["qid"],
+                dst="127.0.0.1",
+                client_port=query["sport"],
+                sport=resolver.port,
+                qtype=DNS_TYPE_A,
+                answers=query["answers"],
+                ancount=query["ancount"],
+                now_ns=2_001 + i,
+            )
         resolver.wait(8)
     finally:
         resolver.close()
-    has_dns, dns_export, records = _dns_export_has(obs, 3_000)
+    _has_dns, dns_export, records = _dns_export_has(obs, 3_000)
     present = {r["key"][3] for r in records}
     decoded = 0
     for i in range(8):
@@ -658,9 +802,14 @@ def scn_dns_nxdomain() -> Finding:
         verdict=verdict,
         basis="observed",
         claim=f"eight real queries carried byte {canary.hex()}; the analyst decoded it from which records are absent",
-        evidence={"control": control, "bits": bits, "sent": canary.hex(),
-                  "decoded": bytes([decoded]).hex(), "queries": queries,
-                  "dns_records": dns_export["records"]},
+        evidence={
+            "control": control,
+            "bits": bits,
+            "sent": canary.hex(),
+            "decoded": bytes([decoded]).hex(),
+            "queries": queries,
+            "dns_records": dns_export["records"],
+        },
         notes=[
             "obs_dns.bpf.c:755-758: ancount 0 returns before anything is stored",
             "a name that does not resolve leaves no record, so absence itself carries a bit",
@@ -674,23 +823,35 @@ def scn_dns_name_launder() -> Finding:
     resolver = Resolver(mode="a", answer="127.0.0.9")
     covert = "canary-9f2c1a.exfil.example"
     decoys = [f"telemetry-{i}.cdn.example" for i in range(DNS_MAX_NAMES_PER_IP)]
-    names = [covert] + decoys
+    names = [covert, *decoys]
     try:
         obs.dns.resolver_port = resolver.port
         for i, name in enumerate(names):
             query = query_once(resolver.port, name)
-            obs.dns.query(name=name, qtype=DNS_TYPE_A, qid=query["qid"],
-                          dst="127.0.0.1", sport=query["sport"],
-                          dport=resolver.port, ident=Ident(EXE, CGROUP),
-                          now_ns=2_000 + i)
-            obs.dns.response(qid=query["qid"], dst="127.0.0.1",
-                             client_port=query["sport"], sport=resolver.port,
-                             qtype=DNS_TYPE_A, answers=query["answers"],
-                             ancount=query["ancount"], now_ns=2_001 + i)
+            obs.dns.query(
+                name=name,
+                qtype=DNS_TYPE_A,
+                qid=query["qid"],
+                dst="127.0.0.1",
+                sport=query["sport"],
+                dport=resolver.port,
+                ident=Ident(EXE, CGROUP),
+                now_ns=2_000 + i,
+            )
+            obs.dns.response(
+                qid=query["qid"],
+                dst="127.0.0.1",
+                client_port=query["sport"],
+                sport=resolver.port,
+                qtype=DNS_TYPE_A,
+                answers=query["answers"],
+                ancount=query["ancount"],
+                now_ns=2_001 + i,
+            )
         resolver.wait(len(names))
     finally:
         resolver.close()
-    has_dns, dns_export, records = _dns_export_has(obs, 3_000)
+    _has_dns, dns_export, records = _dns_export_has(obs, 3_000)
     names_out = [s["name"] for r in records for s in r.get("names", [])]
     if not control_ok:
         verdict = "inconclusive"
@@ -705,8 +866,12 @@ def scn_dns_name_launder() -> Finding:
         verdict=verdict,
         basis="observed",
         claim=f"{len(names)} real resolutions of one address: the count survives, the covert name is pushed out",
-        evidence={"control": control, "asked": names, "recorded_names": names_out,
-                  "dns_records": dns_export["records"]},
+        evidence={
+            "control": control,
+            "asked": names,
+            "recorded_names": names_out,
+            "dns_records": dns_export["records"],
+        },
         notes=[
             "obs_dns.bpf.c:14 and :272-300: four slots per address, the oldest gives way",
             "anyone who can resolve five names at that address decides which four are remembered",
@@ -731,30 +896,56 @@ def scn_dns_id_confusion() -> Finding:
             sock.sendto(first, ("127.0.0.1", resolver.port))
             sock.sendto(second, ("127.0.0.1", resolver.port))
             resolver.wait(2)
-            obs.dns.query(name=name_a, qtype=DNS_TYPE_A, qid=qid,
-                          dst="127.0.0.1", sport=sport,
-                          dport=resolver.port, ident=Ident(EXE, CGROUP),
-                          now_ns=2_000)
-            obs.dns.query(name=name_b, qtype=DNS_TYPE_A, qid=qid,
-                          dst="127.0.0.1", sport=sport,
-                          dport=resolver.port, ident=Ident(EXE, CGROUP),
-                          now_ns=2_001)
+            obs.dns.query(
+                name=name_a,
+                qtype=DNS_TYPE_A,
+                qid=qid,
+                dst="127.0.0.1",
+                sport=sport,
+                dport=resolver.port,
+                ident=Ident(EXE, CGROUP),
+                now_ns=2_000,
+            )
+            obs.dns.query(
+                name=name_b,
+                qtype=DNS_TYPE_A,
+                qid=qid,
+                dst="127.0.0.1",
+                sport=sport,
+                dport=resolver.port,
+                ident=Ident(EXE, CGROUP),
+                now_ns=2_001,
+            )
             replies = []
             for _ in range(2):
                 try:
                     data, _peer = sock.recvfrom(4096)
-                except socket.timeout:
+                except TimeoutError:
                     break
                 replies.append(data)
-            obs.dns.response(qid=qid, dst="127.0.0.1", client_port=sport,
-                             sport=resolver.port, qtype=DNS_TYPE_A,
-                             answers=["127.0.0.20"], ancount=1, now_ns=2_002)
-            obs.dns.response(qid=qid, dst="127.0.0.1", client_port=sport,
-                             sport=resolver.port, qtype=DNS_TYPE_A,
-                             answers=["127.0.0.20"], ancount=1, now_ns=2_003)
+            obs.dns.response(
+                qid=qid,
+                dst="127.0.0.1",
+                client_port=sport,
+                sport=resolver.port,
+                qtype=DNS_TYPE_A,
+                answers=["127.0.0.20"],
+                ancount=1,
+                now_ns=2_002,
+            )
+            obs.dns.response(
+                qid=qid,
+                dst="127.0.0.1",
+                client_port=sport,
+                sport=resolver.port,
+                qtype=DNS_TYPE_A,
+                answers=["127.0.0.20"],
+                ancount=1,
+                now_ns=2_003,
+            )
     finally:
         resolver.close()
-    has_dns, dns_export, records = _dns_export_has(obs, 3_000)
+    _has_dns, dns_export, records = _dns_export_has(obs, 3_000)
     names_out = [s["name"] for r in records for s in r.get("names", [])]
     if not control_ok:
         verdict = "inconclusive"
@@ -769,10 +960,14 @@ def scn_dns_id_confusion() -> Finding:
         verdict=verdict,
         basis="modelled",
         claim="two questions in flight under one transaction id: the answer to the first is filed under the second",
-        evidence={"control": control, "asked": [name_a, name_b],
-                  "recorded_names": names_out, "replies": len(replies),
-                  "dns_debug": dict(obs.dns.debug),
-                  "dns_records": dns_export["records"]},
+        evidence={
+            "control": control,
+            "asked": [name_a, name_b],
+            "recorded_names": names_out,
+            "replies": len(replies),
+            "dns_debug": dict(obs.dns.debug),
+            "dns_records": dns_export["records"],
+        },
         notes=[
             "obs_dns.bpf.c:663 stores the pending question with BPF_ANY, overwriting the one in flight",
             "obs_dns.bpf.c:302-345: the recorded name and the recorded executable both come from the pending question, never from the answer",
@@ -787,8 +982,14 @@ def scn_bucket_collision() -> Finding:
     control_ok, control = _control_interval(obs, 1_000)
 
     def bucket(port: int) -> int:
-        words = net_key_words(Ident(EXE, CGROUP), socket.AF_INET, 17,
-                              ROLE_INITIATOR, port, ipv4_addr_words("127.0.0.1"))
+        words = net_key_words(
+            Ident(EXE, CGROUP),
+            socket.AF_INET,
+            17,
+            ROLE_INITIATOR,
+            port,
+            ipv4_addr_words("127.0.0.1"),
+        )
         return hash_words(words) & (NET_BUCKETS - 1)
 
     groups: dict[int, list[int]] = {}
@@ -801,12 +1002,20 @@ def scn_bucket_collision() -> Finding:
             chosen = members
             break
     if chosen is None:
-        return Finding(name="bucket_collision", family="table", expected="split",
-                      verdict="inconclusive", basis="observed",
-                      claim="no bucket held nine ports", evidence={})
+        return Finding(
+            name="bucket_collision",
+            family="table",
+            expected="split",
+            verdict="inconclusive",
+            basis="observed",
+            claim="no bucket held nine ports",
+            evidence={},
+        )
 
     carrier_port, fillers = chosen[0], chosen[1:]
-    control_port = next(p for p in range(1024, 65536) if bucket(p) != bucket(carrier_port))
+    control_port = next(
+        p for p in range(1024, 65536) if bucket(p) != bucket(carrier_port)
+    )
     _udp_trial(obs, 2_000, port=carrier_port, payload=b"a")
     for i, port in enumerate(fillers):
         _udp_trial(obs, 2_001 + i, port=port, payload=b"f")
@@ -829,12 +1038,17 @@ def scn_bucket_collision() -> Finding:
         verdict=verdict,
         basis="observed",
         claim="one peer became two entries: same address, same port, its packet and byte totals severed",
-        evidence={"control": control, "bucket": bucket(carrier_port),
-                  "carrier_port": carrier_port, "fillers": fillers,
-                  "control_port": control_port,
-                  "carrier_entries": carrier_entries,
-                  "control_entries": control_entries,
-                  "steps": TABLE_STEPS, "buckets": NET_BUCKETS},
+        evidence={
+            "control": control,
+            "bucket": bucket(carrier_port),
+            "carrier_port": carrier_port,
+            "fillers": fillers,
+            "control_port": control_port,
+            "carrier_entries": carrier_entries,
+            "control_entries": control_entries,
+            "steps": TABLE_STEPS,
+            "buckets": NET_BUCKETS,
+        },
         notes=[
             "obs_table.h:113-121 walks at most OBS_T_STEPS links, and :138-153 inserts at the head",
             "the ninth key in a bucket is still inserted but can no longer be found",
@@ -844,26 +1058,66 @@ def scn_bucket_collision() -> Finding:
 
 
 SCENARIOS: dict[str, dict] = {
-    "export_partial": {"family": "export", "expected": "lost", "fn": scn_export_partial,
-                       "shows": "an abandoned export page destroys a record the kernel held"},
-    "export_stall": {"family": "export", "expected": "refused", "fn": scn_export_stall,
-                     "shows": "refusal at capacity falls on insertion order, not on importance"},
-    "attribution_blank": {"family": "identity", "expected": "unattributed", "fn": scn_attribution_blank,
-                          "shows": "a record that cannot name the process that made it"},
-    "unsocketed_packet": {"family": "identity", "expected": "unrecorded", "fn": scn_unsocketed_packet,
-                          "shows": "a packet with no socket produces no record at all"},
-    "dns_offport": {"family": "name_join", "expected": "unjoined", "fn": scn_dns_offport,
-                    "shows": "bytes recorded to a peer whose name was never learned"},
-    "dns_qtype_txt": {"family": "name_join", "expected": "unjoined", "fn": scn_dns_qtype_txt,
-                      "shows": "the refusal is counted inside the kernel and never exported"},
-    "dns_nxdomain": {"family": "name_join", "expected": "unrecorded", "fn": scn_dns_nxdomain,
-                     "shows": "a byte transmitted through the absence of records, and decoded"},
-    "dns_name_launder": {"family": "name_join", "expected": "evicted", "fn": scn_dns_name_launder,
-                         "shows": "whoever resolves five names at an address decides which four are kept"},
-    "dns_id_confusion": {"family": "name_join", "expected": "confused", "fn": scn_dns_id_confusion,
-                         "shows": "an answer filed under a name that never asked for it"},
-    "bucket_collision": {"family": "table", "expected": "split", "fn": scn_bucket_collision,
-                         "shows": "one peer split into two entries by the probe limit"},
+    "export_partial": {
+        "family": "export",
+        "expected": "lost",
+        "fn": scn_export_partial,
+        "shows": "an abandoned export page destroys a record the kernel held",
+    },
+    "export_stall": {
+        "family": "export",
+        "expected": "refused",
+        "fn": scn_export_stall,
+        "shows": "refusal at capacity falls on insertion order, not on importance",
+    },
+    "attribution_blank": {
+        "family": "identity",
+        "expected": "unattributed",
+        "fn": scn_attribution_blank,
+        "shows": "a record that cannot name the process that made it",
+    },
+    "unsocketed_packet": {
+        "family": "identity",
+        "expected": "unrecorded",
+        "fn": scn_unsocketed_packet,
+        "shows": "a packet with no socket produces no record at all",
+    },
+    "dns_offport": {
+        "family": "name_join",
+        "expected": "unjoined",
+        "fn": scn_dns_offport,
+        "shows": "bytes recorded to a peer whose name was never learned",
+    },
+    "dns_qtype_txt": {
+        "family": "name_join",
+        "expected": "unjoined",
+        "fn": scn_dns_qtype_txt,
+        "shows": "the refusal is counted inside the kernel and never exported",
+    },
+    "dns_nxdomain": {
+        "family": "name_join",
+        "expected": "unrecorded",
+        "fn": scn_dns_nxdomain,
+        "shows": "a byte transmitted through the absence of records, and decoded",
+    },
+    "dns_name_launder": {
+        "family": "name_join",
+        "expected": "evicted",
+        "fn": scn_dns_name_launder,
+        "shows": "whoever resolves five names at an address decides which four are kept",
+    },
+    "dns_id_confusion": {
+        "family": "name_join",
+        "expected": "confused",
+        "fn": scn_dns_id_confusion,
+        "shows": "an answer filed under a name that never asked for it",
+    },
+    "bucket_collision": {
+        "family": "table",
+        "expected": "split",
+        "fn": scn_bucket_collision,
+        "shows": "one peer split into two entries by the probe limit",
+    },
 }
 
 
@@ -895,8 +1149,9 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(
         prog="tatewari.evidence_pipeline",
-        description="Attack what the observer writes down: identity, lifetime, "
-                    "name join and capacity of its records.")
+        description="Test what telemetry records and what it misses: identity, "
+        "record lifetime, DNS name joins, and table capacity.",
+    )
     parser.add_argument("--list", action="store_true", help="list scenarios")
     parser.add_argument("--only", default="", help="comma separated scenario names")
     parser.add_argument("--json", action="store_true", help="print full evidence")
@@ -905,7 +1160,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.list:
         for name, spec in SCENARIOS.items():
-            print(f"{name:<20} {spec['family']:<10} -> {spec['expected']:<13} {spec['shows']}")
+            print(
+                f"{name:<20} {spec['family']:<10} -> {spec['expected']:<13} {spec['shows']}"
+            )
         return 0
 
     only = [s.strip() for s in args.only.split(",") if s.strip()] or None
@@ -921,8 +1178,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"     {note}")
     result = summary(findings)
     print()
-    print(f"{result['matched_expected']}/{result['scenarios']} scenarios reached the "
-          f"verdict the weakness predicts; verdicts {result['verdicts']}")
+    print(
+        f"{result['matched_expected']}/{result['scenarios']} scenarios reached the "
+        f"verdict the weakness predicts; verdicts {result['verdicts']}"
+    )
     return 0 if result["matched_expected"] == result["scenarios"] else 1
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

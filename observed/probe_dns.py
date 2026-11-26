@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2026 Authors of tatewari
 """Learn the real `dns` snapshot schema: one query at a local resolver on port 53."""
+
 import json
 import subprocess
 import sys
 import time
 
 sys.path.insert(0, "/workspace/shirudo")
-from tatewari.evidence_pipeline import Resolver, query_once  # noqa: E402
+from tatewari.evidence_pipeline import Resolver, query_once
 
 SHIRUDO = "/run/shirudo/runtime/usr/bin/shirudo"
 

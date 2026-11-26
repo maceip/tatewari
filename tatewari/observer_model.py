@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2026 Authors of tatewari
 """A model of shirudo's kernel-obs evidence pipeline.
 
 The traffic the scenarios drive is real: real sockets, real bytes, real DNS
@@ -107,8 +109,9 @@ class SockFact:
     role: int = ROLE_INITIATOR
 
 
-def net_key_words(ident: Ident, family: int, proto: int, role: int,
-                  port: int, addr: list[int]) -> list[int]:
+def net_key_words(
+    ident: Ident, family: int, proto: int, role: int, port: int, addr: list[int]
+) -> list[int]:
     """The little-endian words of ``struct net_key`` (obs_net.bpf.c:35-46).
 
     Layout: ino, dev|pad, cgroup, family|proto|role|pad0|port|pad1,
@@ -242,8 +245,14 @@ class ArenaTable:
         spare.since_ns = now_ns
         self.active, self.drain = self.drain, self.active
 
-    def export(self, now_ns: int, *, peek: bool = False,
-               ship: int | None = None, resume: bool = False) -> Export:
+    def export(
+        self,
+        now_ns: int,
+        *,
+        peek: bool = False,
+        ship: int | None = None,
+        resume: bool = False,
+    ) -> Export:
         """One serializer pass. ``ship`` models a page-level stop.
 
         The cursor belongs to the caller (obs_table.h:336 reads ``ctx->cursor``),
@@ -267,7 +276,8 @@ class ArenaTable:
         start = self.cursor
         end = used if ship is None else min(used, start + max(0, ship))
         records = [
-            self._record(state.entries[i]) for i in range(start + 1, end + 1)
+            self._record(state.entries[i])
+            for i in range(start + 1, end + 1)
             if state.entries[i] is not None
         ]
         done = end >= used
@@ -305,16 +315,27 @@ def _skb_len(payload: int, proto: int) -> int:
 class NetObserver:
     """obs_net.bpf.c -- cgroup_skb/egress and ingress packet accounting."""
 
-    def __init__(self, capacity: int = NET_CAPACITY,
-                 buckets: int = NET_BUCKETS) -> None:
+    def __init__(
+        self, capacity: int = NET_CAPACITY, buckets: int = NET_BUCKETS
+    ) -> None:
         self.table = ArenaTable("net", capacity, buckets)
         self.dropped_no_socket = 0
         self.unattributed = 0
 
-    def packet(self, *, egress: bool, src: str, dst: str, sport: int, dport: int,
-               proto: int, payload: int, now_ns: int,
-               sock: SockFact | None = None,
-               pid: int | None = None) -> dict | None:
+    def packet(
+        self,
+        *,
+        egress: bool,
+        src: str,
+        dst: str,
+        sport: int,
+        dport: int,
+        proto: int,
+        payload: int,
+        now_ns: int,
+        sock: SockFact | None = None,
+        pid: int | None = None,
+    ) -> dict | None:
         if sock is None or not sock.skb_sk:
             self.dropped_no_socket += 1
             return None
@@ -332,11 +353,16 @@ class NetObserver:
         addr = ipv4_addr_words(dst if egress else src)
         words = net_key_words(ident, socket.AF_INET, proto, role, port, addr)
         key = (
-            "net", ident.exe.ino if ident.exe else None,
-            ident.exe.dev if ident.exe else None, ident.cgroup,
-            proto, role, port, dst if egress else src,
+            "net",
+            ident.exe.ino if ident.exe else None,
+            ident.exe.dev if ident.exe else None,
+            ident.cgroup,
+            proto,
+            role,
+            port,
+            dst if egress else src,
         )
-        entry, status = self.table.touch(words, key)
+        entry, _status = self.table.touch(words, key)
         if entry is None:
             return None
         val = entry["val"]
@@ -359,8 +385,12 @@ class NetObserver:
 class DnsObserver:
     """obs_dns.bpf.c -- a query/response join that keeps names, not payloads."""
 
-    def __init__(self, capacity: int = DNS_CAPACITY,
-                 buckets: int = DNS_BUCKETS, resolver_port: int = DNS_PORT) -> None:
+    def __init__(
+        self,
+        capacity: int = DNS_CAPACITY,
+        buckets: int = DNS_BUCKETS,
+        resolver_port: int = DNS_PORT,
+    ) -> None:
         self.table = ArenaTable("dns", capacity, buckets)
         self.pending: dict[tuple, dict] = {}
         self.debug: dict[str, int] = {}
@@ -373,9 +403,19 @@ class DnsObserver:
         """obs_dns.bpf.c:179-187: counted in ``obs_i_dns_dbg``, never exported."""
         self.debug[name] = self.debug.get(name, 0) + 1
 
-    def query(self, *, name: str, qtype: int, qid: int, dst: str, sport: int,
-              dport: int, family: int = socket.AF_INET,
-              ident: Ident | None = None, now_ns: int = 0) -> str | None:
+    def query(
+        self,
+        *,
+        name: str,
+        qtype: int,
+        qid: int,
+        dst: str,
+        sport: int,
+        dport: int,
+        family: int = socket.AF_INET,
+        ident: Ident | None = None,
+        now_ns: int = 0,
+    ) -> str | None:
         if dport != self.resolver_port:
             # obs_dns.bpf.c:828, before any counter: not even a debug tick.
             return None
@@ -393,9 +433,19 @@ class DnsObserver:
         self._debug("query_stored")
         return "stored"
 
-    def response(self, *, qid: int, dst: str, client_port: int, sport: int,
-                 qtype: int, answers: list[str], ancount: int,
-                 family: int = socket.AF_INET, now_ns: int = 0) -> str | None:
+    def response(
+        self,
+        *,
+        qid: int,
+        dst: str,
+        client_port: int,
+        sport: int,
+        qtype: int,
+        answers: list[str],
+        ancount: int,
+        family: int = socket.AF_INET,
+        now_ns: int = 0,
+    ) -> str | None:
         if sport != self.resolver_port:
             return None
         self._debug("resp_packet")
@@ -421,9 +471,8 @@ class DnsObserver:
             ident = req["ident"]
             addr = ipv4_addr_words(answer)
             words = net_key_words(ident, family, 0, 0, 0, addr)
-            k = ("dns", ident.exe.ino if ident.exe else None,
-                 ident.cgroup, answer)
-            entry, status = self.table.touch(words, k)
+            k = ("dns", ident.exe.ino if ident.exe else None, ident.cgroup, answer)
+            entry, _status = self.table.touch(words, k)
             if entry is None:
                 continue
             val = entry["val"]

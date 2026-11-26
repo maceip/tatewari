@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: BSD-2-Clause
+/*
+ * Copyright (c) 2026 Authors of tatewari
+ */
 /* live probe: load shirudo's kernel-obs upatch on a plain Linux kernel and
  * drain its tables through the upatch's own serializer.
  *

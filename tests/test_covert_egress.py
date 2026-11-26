@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2026 Authors of tatewari
 """The capability must reproduce the tracking set's verdicts, using spar's implementation.
 
 Each scenario runs against spar's reference egress target: a real localhost agent that
@@ -46,9 +48,9 @@ def test_evaded_scenarios_prove_arrival_and_silence() -> None:
         assert result["verdict"] == "evaded", name
         assert result["flags"] == [], name
         arrival = result["arrival"]
-        assert arrival.get("canary_match") is True or arrival.get("decoded_digest") == arrival.get(
-            "expected_digest"
-        ), (name, arrival)
+        assert arrival.get("canary_match") is True or arrival.get(
+            "decoded_digest"
+        ) == arrival.get("expected_digest"), (name, arrival)
         assert result["health"]["control_seen_by_observer"] is True, name
 
 
@@ -63,7 +65,10 @@ def test_caught_scenarios_name_the_detector() -> None:
         scenario = next(s for s in SCENARIOS if s.name == name)
         result = run_scenario(scenario)
         assert result["verdict"] == "caught", name
-        assert any(f["detector"] == detector for f in result["flags"]), (name, result["flags"])
+        assert any(f["detector"] == detector for f in result["flags"]), (
+            name,
+            result["flags"],
+        )
 
 
 def test_held_shield_keeps_the_carrier_on_the_host() -> None:
@@ -85,9 +90,16 @@ def test_classify_labels() -> None:
 
     assert classify(Verdict(Outcome.REPRODUCED, {})) == "evaded"
     assert classify(Verdict(Outcome.INCONCLUSIVE, {})) == "inconclusive"
-    assert classify(Verdict(Outcome.NOT_REPRODUCED, {"flags": [{"detector": "x"}]})) == "caught"
     assert (
-        classify(Verdict(Outcome.NOT_REPRODUCED, {"arrival": {"reason": "no_carrier_receipts"}}))
+        classify(Verdict(Outcome.NOT_REPRODUCED, {"flags": [{"detector": "x"}]}))
+        == "caught"
+    )
+    assert (
+        classify(
+            Verdict(
+                Outcome.NOT_REPRODUCED, {"arrival": {"reason": "no_carrier_receipts"}}
+            )
+        )
         == "held"
     )
     assert classify(Verdict(Outcome.NOT_REPRODUCED, {})) == "not_reproduced"

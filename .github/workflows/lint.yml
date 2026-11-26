@@ -1,0 +1,61 @@
+name: Lint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to a pull request supersedes its run. Any other run is
+# keyed on its ref and commit, so a merge never cancels another's run.
+concurrency:
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{ github.event.pull_request.number || format('{0}@{1}', github.ref, github.sha) }}
+  cancel-in-progress: true
+
+jobs:
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint
+        run: ruff check tatewari tests live observed
+
+      - name: Format
+        run: ruff format --check tatewari tests live observed
+
+  spdx:
+    name: SPDX
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check the SPDX tag of every tracked source
+        run: |
+          status=0
+          while IFS= read -r file; do
+            if ! head -n 3 "$file" | grep -q "SPDX-License-Identifier: BSD-2-Clause"; then
+              echo "missing SPDX tag: $file"
+              status=1
+            fi
+          done < <(git ls-files '*.py' '*.c')
+          exit "$status"
