@@ -93,8 +93,14 @@ queries the observer saw first. The datagrams and DNS packets in both are real. 
 resolver port is remapped off 53 so no privileged bind is needed, and the port filter
 is still exercised: `dns_offport` points the observer at a port the query did not use.
 
-This repo still models the observer rather than reading a live shirudo target. The
-model is a port of the code, so a divergence between them is a bug here.
+Two of the ten scenarios also carry `basis: modelled` in the model, and the section
+below replaces that basis with records from a real target: `unsocketed_packet` turned out
+to behave differently there, and the write-up says so rather than the other way round.
+
+`live/` is an earlier, standalone route to the same question: a small C probe
+that attaches the upatch's `cgroup_skb` programs itself and calls the upatch's own
+serializer, for a kernel where shirudo is not installed. The results in this repo come
+from `vm_runner` against a real shirudo target, not from `live/`.
 
 ## Verdicts
 
@@ -113,6 +119,56 @@ Every trial runs a positive-control fetch first, and every detector is recompute
 the exported records, so an observer with broken alerting cannot absolve itself.
 Priming traffic lands in an earlier observation interval than the carrier it prepares;
 the oracle evaluates only the carrier window.
+
+## The same ten scenarios on a real target
+
+`observer_model` is a line-by-line port of `upatches/kernel-obs`, and a port can be
+wrong. `vm_runner` therefore runs the same ten scenarios against a real one: shirudo's
+own test target (kernel `7.4-shirudo-ci-20261123`, vTPM, `Status: ok`, the `kernel-obs`
+upatch loaded and measured), reads the signed upatch's own exported snapshots with
+`shirudo upatch map kernel-obs <table> --json`, and judges the same claims from the
+records.
+
+```sh
+# on the target, with the upatch loaded
+PYTHONPATH=/workspace/shirudo python3 -m tatewari.vm_runner
+PYTHONPATH=/workspace/shirudo python3 -m tatewari.vm_runner --only dns_id_confusion --json
+```
+
+`observed/target-kernel-obs.json` is one such run, kept so the numbers below can be
+re-read rather than retaken. Eight of the ten claims hold exactly as the model predicts:
+
+| Scenario | Observed | The number that decides it |
+|---|---|---|
+| `attribution_blank` | unattributed | the kernel's own ICMP is recorded with `executable.ino` 0 and `pid` 0, while the datagram that caused it keeps both |
+| `dns_offport` | unjoined | the datagram to `:5353` is in `net`; no `dns` entry names it |
+| `dns_qtype_txt` | unjoined | a TXT answer is counted as bytes; its name never reaches the table |
+| `dns_nxdomain` | unrecorded | `0xa7` sent as eight NXDOMAIN questions, `0xa7` decoded from them, no `dns` record for any of them |
+| `dns_name_launder` | evicted | five names at one address keep `x2..x5.evil.test`; `v1..v3.probe.test` are gone |
+| `dns_id_confusion` | confused | the late answer for `127.0.0.41` is filed under `decoy.probe.test`; the victim's name is recorded nowhere |
+| `bucket_collision` | split | the peer's entry moves on the eighth colliding key: `OBS_T_STEPS` is 8, and its totals split into (8 packets, 232 bytes) and (1 packet, 29 bytes) |
+| `export_stall` | refused | 1040 peers offered, 1024 recorded, `interval.overflow` 16, the first peer present and the last absent |
+
+Two do not, and the model was wrong in both:
+
+- **`unsocketed_packet` — observed `unattributed`, not `unrecorded`.** A packet with no
+  socket behind it is still counted. The kernel's ICMP lands in `net` with an empty
+  identity, so the traffic is not invisible; it is unattributable. That is the thesis of
+  this whole plane, and the model overstated it.
+- **`export_partial` — observed `survived`, not `lost`.** `flip()` does destroy an
+  undrained buffer and count it into `lost` (`obs_table.h:155-171`), but shirudo's own
+  reader takes the whole interval in one pass, so on this target the path is never taken.
+  A full 403-record interval read and re-read reports `lost: 0`. The claim survives as a
+  statement about readers that stop early, not about this one.
+
+Two things had to be arranged for the run to be readable at all, and both are worth
+knowing before filling a table yourself:
+
+- the target's `shirudo-map-export.timer` was stopped, so each scenario reads the
+  interval it wrote instead of having the periodic exporter take it first;
+- the capacity test uses the `dns` table (capacity 1024), because a full `net` interval
+  (8192 entries) is too large for shirudo's signed Lua decoder: the read stops with
+  `decoder instruction limit exceeded` and returns no JSON at all.
 
 ## Setup
 

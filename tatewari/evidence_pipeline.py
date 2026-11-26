@@ -166,12 +166,13 @@ class Resolver:
     """A real UDP DNS responder: answers A, TXT, or nothing at all."""
 
     def __init__(self, mode: str = "a", *, answer: str = "127.0.0.9",
-                 port: int = 0) -> None:
+                 port: int = 0, host: str = "127.0.0.1") -> None:
         self.mode = mode
         self.answer = answer
+        self._host = host
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._sock.bind(("127.0.0.1", port))
+        self._sock.bind((host, port))
         self._sock.settimeout(0.5)
         self.port = self._sock.getsockname()[1]
         self.served: list[dict] = []
@@ -245,18 +246,19 @@ class Resolver:
 
 def query_once(port: int, name: str, qtype: int = DNS_TYPE_A, *,
                qid: int | None = None, sock: socket.socket | None = None,
-               expect_reply: bool = True) -> dict:
+               expect_reply: bool = True,
+               host: str = "127.0.0.1") -> dict:
     """One real DNS query. Returns the query facts and whether a reply came."""
     own = sock is None
     sock = sock or socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(1.0)
     try:
         if own:
-            sock.bind(("127.0.0.1", 0))
+            sock.bind((host, 0))
         sport = sock.getsockname()[1]
         txid = qid if qid is not None else (int(time.time() * 1000) & 0xFFFF)
         packet = _build_query(name, txid, qtype)
-        sock.sendto(packet, ("127.0.0.1", port))
+        sock.sendto(packet, (host, port))
         answered: list[str] = []
         ancount = 0
         if expect_reply:

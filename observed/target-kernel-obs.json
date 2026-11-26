@@ -1,0 +1,1056 @@
+{
+ "findings": [
+  {
+   "basis": "observed",
+   "claim": "a packet the kernel sends on its own is recorded with no process to name, while the datagram that caused it is named",
+   "evidence": {
+    "blank_records": [
+     {
+      "address": "127.0.0.1",
+      "cgroup_id": "1",
+      "count": "0",
+      "entry_index": 2,
+      "executable": {
+       "dev": 0,
+       "ino": "0"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657410621733600",
+      "last_seen_unix_nano": "1795657410621757305",
+      "pid": 0,
+      "port": 0,
+      "proto": "icmp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "201",
+      "tx_packets": "3"
+     }
+    ],
+    "control": {
+     "arrived": true,
+     "control_record": {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 1,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657410198141494",
+      "last_seen_unix_nano": "1795657410198150648",
+      "pid": 5232,
+      "port": 60589,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "35",
+      "tx_packets": "1"
+     },
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657410141940930",
+      "used": 2
+     },
+     "port": 60589,
+     "recorded": true
+    },
+    "dead_port": 40671,
+    "icmp_records": [
+     {
+      "address": "127.0.0.1",
+      "cgroup_id": "1",
+      "count": "0",
+      "entry_index": 2,
+      "executable": {
+       "dev": 0,
+       "ino": "0"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657410621733600",
+      "last_seen_unix_nano": "1795657410621757305",
+      "pid": 0,
+      "port": 0,
+      "proto": "icmp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "201",
+      "tx_packets": "3"
+     }
+    ],
+    "interval": {
+     "lost": 0,
+     "overflow": 0,
+     "peek": false,
+     "since_unix_nano": "1795657410568814253",
+     "used": 2
+    },
+    "seconds": 1.26,
+    "udp_records": [
+     {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "3",
+      "entry_index": 1,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657410621714474",
+      "last_seen_unix_nano": "1795657410621756349",
+      "pid": 5232,
+      "port": 40671,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "117",
+      "tx_packets": "3"
+     }
+    ]
+   },
+   "expected": "unattributed",
+   "family": "identity",
+   "notes": [
+    "obs_net.bpf.c:965: identity comes from skb->sk and its sk_storage; a packet the kernel generates has neither",
+    "the ICMP is the same packet class as the modelled unsocketed case, observed rather than modelled",
+    "the controlling datagram keeps its executable and pid in the same interval, so attribution works and this record lacks it"
+   ],
+   "scenario": "attribution_blank",
+   "verdict": "unattributed"
+  },
+  {
+   "basis": "observed",
+   "claim": "a packet with no socket behind it produces no record at all",
+   "evidence": {
+    "control": {
+     "arrived": true,
+     "control_record": {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 1,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657411485836708",
+      "last_seen_unix_nano": "1795657411485845396",
+      "pid": 5232,
+      "port": 40276,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "35",
+      "tx_packets": "1"
+     },
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657411432567182",
+      "used": 2
+     },
+     "port": 40276,
+     "recorded": true
+    },
+    "dead_port": 56563,
+    "icmp_records": [
+     {
+      "address": "127.0.0.1",
+      "cgroup_id": "1",
+      "count": "0",
+      "entry_index": 2,
+      "executable": {
+       "dev": 0,
+       "ino": "0"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657411901668787",
+      "last_seen_unix_nano": "1795657411901690280",
+      "pid": 0,
+      "port": 0,
+      "proto": "icmp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "198",
+      "tx_packets": "3"
+     }
+    ],
+    "interval": {
+     "lost": 0,
+     "overflow": 0,
+     "peek": false,
+     "since_unix_nano": "1795657411848207608",
+     "used": 2
+    },
+    "seconds": 1.27
+   },
+   "expected": "unrecorded",
+   "family": "identity",
+   "notes": [
+    "obs_net.bpf.c:965: sk = skb->sk, and cgroup_skb runs for a socket",
+    "observed: the kernel's own ICMP is counted, with an empty identity, so the traffic is not invisible -- it is unattributable",
+    "this scenario and attribution_blank share one packet class and ask different questions of it"
+   ],
+   "scenario": "unsocketed_packet",
+   "verdict": "unattributed"
+  },
+  {
+   "basis": "observed",
+   "claim": "a resolver that is not on port 53 has its bytes recorded and its names never learned",
+   "evidence": {
+    "control": {
+     "arrived": true,
+     "control_record": {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 1,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657412965755027",
+      "last_seen_unix_nano": "1795657412965763197",
+      "pid": 5232,
+      "port": 37385,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "35",
+      "tx_packets": "1"
+     },
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657412655935688",
+      "used": 2
+     },
+     "port": 37385,
+     "recorded": true
+    },
+    "dns_snapshot": {
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657412912472164",
+      "used": 0
+     },
+     "map": "dns",
+     "records": [],
+     "schema": 1,
+     "upatch": "kernel-obs"
+    },
+    "interval": {
+     "lost": 0,
+     "overflow": 0,
+     "peek": false,
+     "since_unix_nano": "1795657412912472164",
+     "used": 0
+    },
+    "net_to_resolver": [
+     {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 1,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657413385907053",
+      "last_seen_unix_nano": "1795657413386012207",
+      "pid": 5232,
+      "port": 5353,
+      "proto": "udp",
+      "rx_bytes": "80",
+      "rx_packets": "1",
+      "tx_bytes": "64",
+      "tx_packets": "1"
+     }
+    ],
+    "query": {
+     "ancount": 1,
+     "answers": [
+      "127.0.0.31"
+     ],
+     "dport": 5353,
+     "name": "offport.probe.test",
+     "payload": 36,
+     "qid": 45832,
+     "qtype": 1,
+     "sport": 51785
+    },
+    "seconds": 1.69
+   },
+   "expected": "unjoined",
+   "family": "name_join",
+   "notes": [
+    "obs_dns.bpf.c: the parser reads a query only on a fixed port check",
+    "net records the datagram in both directions, so the traffic is visible; the name join is what is missing"
+   ],
+   "scenario": "dns_offport",
+   "verdict": "unjoined"
+  },
+  {
+   "basis": "observed",
+   "claim": "only A and AAAA answers reach the name table; a TXT answer's query is spent and not exported",
+   "evidence": {
+    "control": {
+     "arrived": true,
+     "control_record": {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 2,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657414857771748",
+      "last_seen_unix_nano": "1795657414857779306",
+      "pid": 5232,
+      "port": 35922,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "35",
+      "tx_packets": "1"
+     },
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657414345003015",
+      "used": 3
+     },
+     "port": 35922,
+     "recorded": true
+    },
+    "dns_snapshot": {
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657414804257671",
+      "used": 0
+     },
+     "map": "dns",
+     "records": [],
+     "schema": 1,
+     "upatch": "kernel-obs"
+    },
+    "interval": {
+     "lost": 0,
+     "overflow": 0,
+     "peek": false,
+     "since_unix_nano": "1795657414804257671",
+     "used": 0
+    },
+    "net_to_resolver": [
+     {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 1,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657415277895471",
+      "last_seen_unix_nano": "1795657415277987668",
+      "pid": 5232,
+      "port": 53,
+      "proto": "udp",
+      "rx_bytes": "88",
+      "rx_packets": "1",
+      "tx_bytes": "60",
+      "tx_packets": "1"
+     }
+    ],
+    "query": {
+     "ancount": 1,
+     "answers": [],
+     "dport": 53,
+     "name": "txt.probe.test",
+     "payload": 32,
+     "qid": 47724,
+     "qtype": 1,
+     "sport": 34212
+    },
+    "seconds": 1.88
+   },
+   "expected": "unjoined",
+   "family": "name_join",
+   "notes": [
+    "obs_dns.bpf.c:642: only A and AAAA records are parsed",
+    "the query itself is well formed and answered, so the absence is the parser's, not the network's"
+   ],
+   "scenario": "dns_qtype_txt",
+   "verdict": "unjoined"
+  },
+  {
+   "basis": "observed",
+   "claim": "a byte can be sent through names that resolve to nothing: the queries are recorded as packets, their names never as names",
+   "evidence": {
+    "asked": [
+     "b1.y.probe.test",
+     "b0.y.probe.test",
+     "b1.y.probe.test",
+     "b0.y.probe.test",
+     "b0.y.probe.test",
+     "b1.y.probe.test",
+     "b1.y.probe.test",
+     "b1.y.probe.test"
+    ],
+    "control": {
+     "arrived": true,
+     "control_record": {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 1,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657416533838851",
+      "last_seen_unix_nano": "1795657416533847168",
+      "pid": 5232,
+      "port": 48546,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "35",
+      "tx_packets": "1"
+     },
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657416232627515",
+      "used": 2
+     },
+     "port": 48546,
+     "recorded": true
+    },
+    "decoded": 167,
+    "dns_snapshot": {
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657416480528280",
+      "used": 0
+     },
+     "map": "dns",
+     "records": [],
+     "schema": 1,
+     "upatch": "kernel-obs"
+    },
+    "interval": {
+     "lost": 0,
+     "overflow": 0,
+     "peek": false,
+     "since_unix_nano": "1795657416480528280",
+     "used": 0
+    },
+    "net_to_resolver": [
+     {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "8",
+      "entry_index": 1,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657416945946544",
+      "last_seen_unix_nano": "1795657416946402036",
+      "pid": 5232,
+      "port": 53,
+      "proto": "udp",
+      "rx_bytes": "488",
+      "rx_packets": "8",
+      "tx_bytes": "488",
+      "tx_packets": "8"
+     }
+    ],
+    "payload_byte": 167,
+    "seconds": 1.68
+   },
+   "expected": "unrecorded",
+   "family": "name_join",
+   "notes": [
+    "obs_dns.bpf.c:755: an answer with ancount 0 returns before storing",
+    "the decoder reads only names it asked for itself, so the channel needs no record to work; the record is what is missing",
+    "payload sent 0xa7, payload decoded 0xa7"
+   ],
+   "scenario": "dns_nxdomain",
+   "verdict": "unrecorded"
+  },
+  {
+   "basis": "observed",
+   "claim": "whoever resolves five names at an address decides which four the record keeps, and their names can push out the ones you care about",
+   "evidence": {
+    "answer": "127.0.0.33",
+    "control": {
+     "arrived": true,
+     "control_record": {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 1,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657418217797194",
+      "last_seen_unix_nano": "1795657418217805826",
+      "pid": 5232,
+      "port": 33986,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "35",
+      "tx_packets": "1"
+     },
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657417908632492",
+      "used": 2
+     },
+     "port": 33986,
+     "recorded": true
+    },
+    "dns_snapshot": {
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657418164070964",
+      "used": 1
+     },
+     "map": "dns",
+     "records": [
+      {
+       "address": "127.0.0.33",
+       "answer_count": "8",
+       "cgroup_id": "5486",
+       "entry_index": 1,
+       "executable": {
+        "dev": 266338305,
+        "ino": "2024"
+       },
+       "family": 2,
+       "first_seen_unix_nano": "1795657418633990399",
+       "last_seen_unix_nano": "1795657418634378535",
+       "names": [
+        {
+         "last_seen_unix_nano": "1795657418634253908",
+         "name": "x2.evil.test",
+         "seen_count": "1"
+        },
+        {
+         "last_seen_unix_nano": "1795657418634295936",
+         "name": "x3.evil.test",
+         "seen_count": "1"
+        },
+        {
+         "last_seen_unix_nano": "1795657418634337809",
+         "name": "x4.evil.test",
+         "seen_count": "1"
+        },
+        {
+         "last_seen_unix_nano": "1795657418634378535",
+         "name": "x5.evil.test",
+         "seen_count": "1"
+        }
+       ]
+      }
+     ],
+     "schema": 1,
+     "upatch": "kernel-obs"
+    },
+    "evicted": [
+     "v1.probe.test",
+     "v2.probe.test",
+     "v3.probe.test"
+    ],
+    "interval": {
+     "lost": 0,
+     "overflow": 0,
+     "peek": false,
+     "since_unix_nano": "1795657418164070964",
+     "used": 1
+    },
+    "kept": [
+     "x2.evil.test",
+     "x3.evil.test",
+     "x4.evil.test",
+     "x5.evil.test"
+    ],
+    "launder": [
+     "x1.evil.test",
+     "x2.evil.test",
+     "x3.evil.test",
+     "x4.evil.test",
+     "x5.evil.test"
+    ],
+    "seconds": 1.42,
+    "victim": [
+     "v1.probe.test",
+     "v2.probe.test",
+     "v3.probe.test"
+    ]
+   },
+   "expected": "evicted",
+   "family": "name_join",
+   "notes": [
+    "obs_dns.bpf.c:14: DNS_MAX_NAMES_PER_IP is 4",
+    "obs_dns.bpf.c:272-300: a fifth name evicts the oldest slot",
+    "3 names first, then 5; kept 4"
+   ],
+   "scenario": "dns_name_launder",
+   "verdict": "evicted"
+  },
+  {
+   "basis": "observed",
+   "claim": "two questions sharing a transaction id leave the table unable to say which name an answer belonged to",
+   "evidence": {
+    "control": {
+     "arrived": true,
+     "control_record": {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 2,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657421221892855",
+      "last_seen_unix_nano": "1795657421221902327",
+      "pid": 5232,
+      "port": 45140,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "35",
+      "tx_packets": "1"
+     },
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": true,
+      "since_unix_nano": "1795657419340596295",
+      "used": 3
+     },
+     "port": 45140,
+     "recorded": true
+    },
+    "decoy": "decoy.probe.test",
+    "decoy_addr": "127.0.0.42",
+    "decoy_names": [],
+    "dns_snapshot": {
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657421168337906",
+      "used": 1
+     },
+     "map": "dns",
+     "records": [
+      {
+       "address": "127.0.0.41",
+       "answer_count": "1",
+       "cgroup_id": "5486",
+       "entry_index": 1,
+       "executable": {
+        "dev": 266338305,
+        "ino": "2024"
+       },
+       "family": 2,
+       "first_seen_unix_nano": "1795657421888423443",
+       "last_seen_unix_nano": "1795657421888423443",
+       "names": [
+        {
+         "last_seen_unix_nano": "1795657421888423443",
+         "name": "decoy.probe.test",
+         "seen_count": "1"
+        }
+       ]
+      }
+     ],
+     "schema": 1,
+     "upatch": "kernel-obs"
+    },
+    "interval": {
+     "lost": 0,
+     "overflow": 0,
+     "peek": false,
+     "since_unix_nano": "1795657421168337906",
+     "used": 1
+    },
+    "misfiled": true,
+    "seconds": 3.72,
+    "victim": "victim.probe.test",
+    "victim_addr": "127.0.0.41",
+    "victim_names": [
+     "decoy.probe.test"
+    ]
+   },
+   "expected": "confused",
+   "family": "name_join",
+   "notes": [
+    "obs_dns.bpf.c:663: the pending question is stored with BPF_ANY, so a second question from the same socket overwrites the first",
+    "obs_dns.bpf.c:302-345: the record takes the name from the pending query and the address from the answer it is writing",
+    "both questions leave one socket with one transaction id, and each name is answered with its own address, so the join is all that is being measured"
+   ],
+   "scenario": "dns_id_confusion",
+   "verdict": "confused"
+  },
+  {
+   "basis": "observed",
+   "claim": "one peer becomes two entries once its probe chain is full, and its totals are severed between them",
+   "evidence": {
+    "bucket": 517,
+    "control": {
+     "arrived": true,
+     "control_record": {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 1,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657423109851762",
+      "last_seen_unix_nano": "1795657423109859675",
+      "pid": 5232,
+      "port": 41265,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "35",
+      "tx_packets": "1"
+     },
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": true,
+      "since_unix_nano": "1795657423055982014",
+      "used": 2
+     },
+     "port": 41265,
+     "recorded": true
+    },
+    "entries": [
+     {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "8",
+      "entry_index": 3,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657423525627036",
+      "last_seen_unix_nano": "1795657427113691418",
+      "pid": 5232,
+      "port": 56937,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "232",
+      "tx_packets": "8"
+     },
+     {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 14,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657427493681662",
+      "last_seen_unix_nano": "1795657427493682549",
+      "pid": 5232,
+      "port": 56937,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "29",
+      "tx_packets": "1"
+     }
+    ],
+    "fillers": [
+     [
+      "127.0.0.1",
+      4402
+     ],
+     [
+      "127.0.0.1",
+      22179
+     ],
+     [
+      "127.0.0.1",
+      25791
+     ],
+     [
+      "127.0.0.1",
+      29113
+     ],
+     [
+      "127.0.0.1",
+      37842
+     ],
+     [
+      "127.0.0.1",
+      44882
+     ],
+     [
+      "127.0.0.1",
+      49288
+     ],
+     [
+      "127.0.0.1",
+      49896
+     ]
+    ],
+    "fillers_to_split": 8,
+    "interval": {
+     "lost": 0,
+     "overflow": 0,
+     "peek": true,
+     "since_unix_nano": "1795657423055937649",
+     "used": 14
+    },
+    "probe_port": 56937,
+    "seconds": 5.02,
+    "seed_entry_index": 3,
+    "totals": [
+     [
+      "8",
+      "232",
+      3
+     ],
+     [
+      "1",
+      "29",
+      14
+     ]
+    ]
+   },
+   "expected": "split",
+   "family": "table",
+   "notes": [
+    "obs_net.bpf.c:153: OBS_T_STEPS bounds the probe chain the walk takes",
+    "obs_table.h:114-135: a key the walk does not reach is inserted as a new entry at the head of the bucket rather than found",
+    "the bucket is computed from the record the kernel wrote, so a split also confirms the key layout and the hash match the kernel's",
+    "the model's version of this scenario assumed the walk stops one entry short of what the kernel does; here it is measured instead"
+   ],
+   "scenario": "bucket_collision",
+   "verdict": "split"
+  },
+  {
+   "basis": "observed",
+   "claim": "at capacity the table refuses new peers, so what is kept depends on arrival order and not on what the peer is",
+   "evidence": {
+    "control": {
+     "arrived": true,
+     "control_record": {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 15,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657428133813328",
+      "last_seen_unix_nano": "1795657428133821722",
+      "pid": 5232,
+      "port": 60566,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "35",
+      "tx_packets": "1"
+     },
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": true,
+      "since_unix_nano": "1795657423055936877",
+      "used": 16
+     },
+     "port": 60566,
+     "recorded": true
+    },
+    "first_address": "127.1.0.0",
+    "first_recorded": true,
+    "interval": {
+     "lost": 0,
+     "overflow": 16,
+     "peek": false,
+     "since_unix_nano": "1795657428082187579",
+     "used": 1024
+    },
+    "last_address": "127.1.4.15",
+    "last_recorded": false,
+    "offered": 1040,
+    "overflow": 16,
+    "recorded": 1024,
+    "seconds": 1.4
+   },
+   "expected": "refused",
+   "family": "export",
+   "notes": [
+    "obs_dns.bpf.c:167: the dns table is OBS_T_CAPACITY 1024, OBS_T_BUCKETS 512, OBS_T_STEPS 8",
+    "obs_table.h:130-136: an exhausted table refuses the entry and counts it in interval.overflow",
+    "the control is recorded in the same snapshot as the refused peer",
+    "the net table cannot show this: decoder limits stopped the read at 8192 records, the dns table at 1024 does not"
+   ],
+   "scenario": "export_stall",
+   "verdict": "refused"
+  },
+  {
+   "basis": "observed",
+   "claim": "an export that stops before the last record destroys the rest and reports it in the next header, in the stream it is about",
+   "evidence": {
+    "capped_interval": {
+     "lost": 0,
+     "overflow": 0,
+     "peek": false,
+     "since_unix_nano": "1795657429892694970",
+     "used": 401
+    },
+    "capped_records": 401,
+    "control": {
+     "arrived": true,
+     "control_record": {
+      "address": "127.0.0.1",
+      "cgroup_id": "5486",
+      "count": "1",
+      "entry_index": 1,
+      "executable": {
+       "dev": 266338305,
+       "ino": "2024"
+      },
+      "family": 2,
+      "first_seen_unix_nano": "1795657429536662396",
+      "last_seen_unix_nano": "1795657429536670120",
+      "pid": 5232,
+      "port": 53790,
+      "proto": "udp",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "tx_bytes": "35",
+      "tx_packets": "1"
+     },
+     "interval": {
+      "lost": 0,
+      "overflow": 0,
+      "peek": false,
+      "since_unix_nano": "1795657429472615008",
+      "used": 2
+     },
+     "port": 53790,
+     "recorded": true
+    },
+    "interval_used": 401,
+    "next_interval": {
+     "lost": 0,
+     "overflow": 0,
+     "peek": false,
+     "since_unix_nano": "1795657430556133394",
+     "used": 0
+    },
+    "next_lost": 0,
+    "offered": 400,
+    "seconds": 1.59
+   },
+   "expected": "lost",
+   "family": "export",
+   "notes": [
+    "obs_table.h:155-171: flip() clears an undrained buffer into lost",
+    "obs_table.h:379-395: lost is zeroed only when a pass reaches the last record",
+    "shirudo's own reader takes the whole interval, so this scenario asks whether anything is destroyed when it does",
+    "survived here is not a claim that the loss path is dead: it is a claim that shirudo's own read never leaves the it half-drained, so on this target the path modelled as lost is never taken"
+   ],
+   "scenario": "export_partial",
+   "verdict": "survived"
+  }
+ ],
+ "target": "shirudo test VM",
+ "target_facts": {
+  "kernel": "7.4-shirudo-ci-20261123",
+  "status_conditions": [
+   {
+    "detail": "lsm/bpf link present and pinned",
+    "status": "OK",
+    "type": "LsmAttached"
+   },
+   {
+    "detail": "bpf serial 171776899, dm-verity serial 76302044, pins match",
+    "status": "OK",
+    "type": "KeyringSealed"
+   },
+   {
+    "detail": "live register equals the eventlog replay",
+    "status": "OK",
+    "type": "ChainIntact"
+   },
+   {
+    "detail": "every pinned or archived upatch is in this boot's records",
+    "status": "OK",
+    "type": "UpatchesMeasured"
+   },
+   {
+    "detail": "NV index 0x01818E00 readable",
+    "status": "OK",
+    "type": "TpmMeasured"
+   },
+   {
+    "detail": "config 4702d4c39788.. is active",
+    "status": "OK",
+    "type": "ConfigActive"
+   },
+   {
+    "detail": "every device an XDP upatch selects runs it",
+    "status": "OK",
+    "type": "XdpCovered"
+   }
+  ],
+  "status_status": "ok",
+  "status_version_id": "8934fc911242bbc51996e933fe2ccce67e8972d2e7812ca1d9cc2a5aa981efe8",
+  "upatch_loads": 0,
+  "version-id": "8934fc911242bbc51996e933fe2ccce67e8972d2e7812ca1d9cc2a5aa981efe8"
+ },
+ "upatch": "kernel-obs"
+}
