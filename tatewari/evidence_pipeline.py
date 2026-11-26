@@ -773,7 +773,8 @@ def scn_dns_id_confusion() -> Finding:
                   "dns_records": dns_export["records"]},
         notes=[
             "obs_dns.bpf.c:663 stores the pending question with BPF_ANY, overwriting the one in flight",
-            "obs_dns.bpf.c:769-772: the recorded name comes from the pending question, never from the answer",
+            "obs_dns.bpf.c:302-345: the recorded name and the recorded executable both come from the pending question, never from the answer",
+            "so a stale question mislabels the answer's name and the process it is charged to",
             "basis is modelled for the ordering only: the packets are real, the model fixes which is in flight first",
         ],
     )

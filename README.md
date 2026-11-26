@@ -17,6 +17,9 @@ detectors flagged the exported records. A silent, stale, or self-contradicting o
 is reported as inconclusive, never as evasion. This is a demonstration against a model
 of shirudo's documented telemetry, not an attack on a live deployment.
 
+The [second act](#second-act-the-evidence-plane) attacks the record instead of the
+traffic: ten scenarios, each a way to be recorded honestly and still name nobody.
+
 The implementation is not in this repo. tatewari imports it from the sibling spar
 checkout, branch `feat/shirudo-egress-evasion` (tracking set `49740cf..c5caa62`):
 the encoders and sink (`spar/egress.py`), the defense model and detectors
@@ -43,6 +46,55 @@ The picture-book version of this story is the prompt sheet
 `illustration/prompts/b7-four-quiet-ways-out.txt` in shirudokai (`1557b622`): the
 observer wrote down every byte and never read one; the shield that opened the parcel
 caught it.
+
+## Second act: the evidence plane
+
+The four channels above assume the record exists and says the right thing. It is
+worth attacking the record instead. Each scenario below is a port of a named line in
+shirudo's `upatches/kernel-obs/`, driven by real traffic: a real datagram to a
+receiver this process owns, a real DNS query answered by a real resolver, and the
+observer's own hash, bucket count, probe limit, port filter, name-slot count and
+buffer lifetime.
+
+| Scenario | Verdict | What shirudo's code does | Where |
+|---|---|---|---|
+| `export_partial` | lost | an export that stops before the last record leaves the drain buffer uncleared; the next pass destroys it and reports `lost` | `obs_table.h:155`, `:379` |
+| `export_stall` | refused | past capacity the table refuses the entry, by insertion order | `obs_table.h:127` |
+| `attribution_blank` | unattributed | with no socket-storage record the key keeps a cgroup id and `exe` stays zero | `obs_net.bpf.c:965` |
+| `unsocketed_packet` | unrecorded | cgroup_skb runs only for a full socket, so a skb without one produces no record | kernel, not the upatch |
+| `dns_offport` | unjoined | answers are parsed only from the configured resolver port | `obs_dns.bpf.c:828` |
+| `dns_qtype_txt` | unjoined | only A and AAAA are parsed, and the refusal counter is internal, never exported | `obs_dns.bpf.c:642`, `:161` |
+| `dns_nxdomain` | unrecorded | a response with no answer returns before anything is stored, so absence carries a bit | `obs_dns.bpf.c:755` |
+| `dns_name_launder` | evicted | four name slots per address; the fifth resolution evicts the oldest | `obs_dns.bpf.c:272` |
+| `dns_id_confusion` | confused | the pending question is stored with `BPF_ANY`, and both the recorded name and the recorded executable come from it, never from the answer | `obs_dns.bpf.c:663`, `:302` |
+| `bucket_collision` | split | the lookup walks at most eight links and inserts at the head, so the ninth key in a bucket is inserted and then unfindable | `obs_table.h:113`, `:138` |
+
+Four of them are worth running in front of an audience, because the evidence file
+carries the number that makes the claim true:
+
+- `dns_nxdomain` really transmits. A canary byte goes out as eight real queries; some
+  resolve and some do not; the analyst decodes the byte back from *which addresses
+  appear in the `dns` table at all*. Nothing written down says what the bit was.
+- `bucket_collision` really splits. The carrier port yields two entries of one packet
+  and 29 bytes each, while a control port yields one entry of two packets and 58
+  bytes. The colliding ports are chosen from the observer's own hash over the whole
+  port range, not hoped for.
+- `export_partial` really destroys. The datagram's arrival is proven by the receiver,
+  the partial export ships one of the two records, and the restart reports `lost: 2`
+  and exports nothing. `lost` counts the whole abandoned buffer, including the page
+  that did get sent.
+- `dns_qtype_txt` really is silent. A TXT answer arrives, the kernel's
+  `query_qtype_unsupported` counter increments, and no snapshot contains it.
+
+Two scenarios carry `basis: modelled` and say why in their notes:
+`unsocketed_packet` fixes the one property the demo cannot vary on every platform
+(whether the skb carries a socket), and `dns_id_confusion` fixes which of two in-flight
+queries the observer saw first. The datagrams and DNS packets in both are real. The
+resolver port is remapped off 53 so no privileged bind is needed, and the port filter
+is still exercised: `dns_offport` points the observer at a port the query did not use.
+
+This repo still models the observer rather than reading a live shirudo target. The
+model is a port of the code, so a divergence between them is a bug here.
 
 ## Verdicts
 
@@ -80,6 +132,16 @@ python3.12 -m venv .venv
 .venv/bin/python -m tatewari.covert_egress --list     # scenario names
 .venv/bin/python -m tatewari.covert_egress --only dns_hex,timing,prevention_shield
 .venv/bin/python -m tatewari.covert_egress --json     # full evidence per scenario
+```
+
+The evidence plane has its own entry point, which exits non-zero unless every
+scenario reaches the verdict its weakness predicts:
+
+```sh
+.venv/bin/python -m tatewari.evidence_pipeline --list
+.venv/bin/python -m tatewari.evidence_pipeline
+.venv/bin/python -m tatewari.evidence_pipeline --only dns_nxdomain,bucket_collision
+.venv/bin/python -m tatewari.evidence_pipeline --family name_join --json
 ```
 
 The matrix (each scenario runs against a fresh reference target on localhost):

@@ -17,6 +17,7 @@ dev = ["pytest>=8"]
 
 [project.scripts]
 tatewari = "tatewari.covert_egress:main"
+tatewari-pipeline = "tatewari.evidence_pipeline:main"
 
 [tool.setuptools.packages.find]
 include = ["tatewari*"]
